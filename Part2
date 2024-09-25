@@ -1,0 +1,130 @@
+# Part 2: Extend to Modes of Operation
+
+# Importing the block cipher functions from Part 1
+# Block Size: 8 bits
+BLOCK_SIZE = 8  # 8-bit block
+KEY_SIZE = 8    # 8-bit key
+
+# S-Box for substitution
+S_BOX = {
+    0b0000: 0b1110, 0b0001: 0b0100, 0b0010: 0b1101, 0b0011: 0b0001,
+    0b0100: 0b0010, 0b0101: 0b1111, 0b0110: 0b1011, 0b0111: 0b1000,
+    0b1000: 0b0011, 0b1001: 0b1010, 0b1010: 0b0110, 0b1011: 0b1100,
+    0b1100: 0b0101, 0b1101: 0b1001, 0b1110: 0b0000, 0b1111: 0b0111
+}
+
+PERMUTATION_TABLE = [1, 5, 2, 0, 3, 7, 4, 6]
+
+def s_box_substitute(nibble):
+    """Substitute a 4-bit nibble using the S-box."""
+    return S_BOX[nibble]
+
+def permute(bits):
+    """Permute the bits of an 8-bit block according to the permutation table."""
+    permuted_bits = 0
+    for i, bit_pos in enumerate(PERMUTATION_TABLE):
+        permuted_bits |= ((bits >> bit_pos) & 1) << i
+    return permuted_bits
+
+def feistel_function(right_half, key_half):
+    """Feistel function: XOR 4-bit right half with 4-bit key."""
+    return right_half ^ key_half
+
+def encrypt_block(block, key):
+    """Encrypt a single 8-bit block using the S-box, permutation, and Feistel structure."""
+    left_half = (block >> 4) & 0xF  # Left 4 bits
+    right_half = block & 0xF        # Right 4 bits
+    key_left = (key >> 4) & 0xF     # Left 4 bits of key
+    key_right = key & 0xF           # Right 4 bits of key
+
+    feistel_output = feistel_function(right_half, key_right)
+    new_left_half = left_half ^ feistel_output
+
+    new_left_half = s_box_substitute(new_left_half)
+    new_right_half = s_box_substitute(right_half)
+
+    combined_block = (new_left_half << 4) | new_right_half
+    permuted_block = permute(combined_block)
+
+    return permuted_block
+
+# ECB Mode Encryption and Decryption
+def ecb_encrypt(plaintext_blocks, key):
+    """Encrypt a list of 8-bit plaintext blocks using ECB mode."""
+    ciphertext_blocks = []
+    for block in plaintext_blocks:
+        ciphertext_blocks.append(encrypt_block(block, key))
+    return ciphertext_blocks
+
+def ecb_decrypt(ciphertext_blocks, key):
+    """Decrypt a list of 8-bit ciphertext blocks using ECB mode."""
+    decrypted_blocks = []
+    for block in ciphertext_blocks:
+        decrypted_blocks.append(encrypt_block(block, key))  # Symmetric decryption
+    return decrypted_blocks
+
+# CBC Mode Encryption and Decryption
+def cbc_encrypt(plaintext_blocks, key, iv):
+    """Encrypt a list of 8-bit plaintext blocks using CBC mode with an IV."""
+    ciphertext_blocks = []
+    previous_block = iv
+    for block in plaintext_blocks:
+        block_to_encrypt = block ^ previous_block
+        ciphertext_block = encrypt_block(block_to_encrypt, key)
+        ciphertext_blocks.append(ciphertext_block)
+        previous_block = ciphertext_block
+    return ciphertext_blocks
+
+def cbc_decrypt(ciphertext_blocks, key, iv):
+    """Decrypt a list of 8-bit ciphertext blocks using CBC mode with an IV."""
+    decrypted_blocks = []
+    previous_block = iv
+    for block in ciphertext_blocks:
+        decrypted_block = encrypt_block(block, key)  # Symmetric decryption
+        decrypted_block ^= previous_block  # XOR with previous ciphertext (or IV for the first block)
+        decrypted_blocks.append(decrypted_block)
+        previous_block = block
+    return decrypted_blocks
+
+# OFB Mode Encryption and Decryption (Bonus)
+def ofb_encrypt_decrypt(plaintext_blocks, key, iv):
+    """Encrypt/Decrypt a list of 8-bit blocks using OFB mode (since it's symmetric)."""
+    keystream_block = iv
+    output_blocks = []
+    
+    for block in plaintext_blocks:
+        keystream_block = encrypt_block(keystream_block, key)  # Generate keystream
+        output_block = block ^ keystream_block  # XOR keystream with the block
+        output_blocks.append(output_block)
+    
+    return output_blocks
+
+# Example usage for ECB, CBC, and OFB Modes
+if __name__ == "__main__":
+    # Example 8-bit blocks and 8-bit key
+    plaintext_blocks = [0b10101010, 0b11001100, 0b11110000]  # Example plaintext blocks
+    key = 0b10100101  # Example 8-bit key
+    iv = 0b11111111   # Example initialization vector (IV)
+    
+    print("ECB Mode:")
+    # ECB Encryption
+    ciphertext_ecb = ecb_encrypt(plaintext_blocks, key)
+    print(f"ECB Ciphertext: {[bin(c) for c in ciphertext_ecb]}")
+    
+    # ECB Decryption
+    decrypted_ecb = ecb_decrypt(ciphertext_ecb, key)
+    print(f"ECB Decrypted: {[bin(p) for p in decrypted_ecb]}")
+    
+    print("\nCBC Mode:")
+    # CBC Encryption
+    ciphertext_cbc = cbc_encrypt(plaintext_blocks, key, iv)
+    print(f"CBC Ciphertext: {[bin(c) for c in ciphertext_cbc]}")
+    
+    # CBC Decryption
+    decrypted_cbc = cbc_decrypt(ciphertext_cbc, key, iv)
+    print(f"CBC Decrypted: {[bin(p) for p in decrypted_cbc]}")
+    
+    print("\nOFB Mode (Bonus):")
+    # OFB Encryption/Decryption
+    output_ofb = ofb_encrypt_decrypt(plaintext_blocks, key, iv)
+    print(f"OFB Output: {[bin(c) for c in output_ofb]}")
