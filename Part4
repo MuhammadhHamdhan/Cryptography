@@ -1,0 +1,132 @@
+# Part 4: Report Preparation
+
+# Import functions from Part 1 (Block Cipher) and Part 2 (ECB, CBC Modes)
+
+# 1. Architecture of the Cryptosystem
+
+# Define the S-Box
+S_BOX = {
+    0b0000: 0b1110, 0b0001: 0b0100, 0b0010: 0b1101, 0b0011: 0b0001,
+    0b0100: 0b0010, 0b0101: 0b1111, 0b0110: 0b1011, 0b0111: 0b1000,
+    0b1000: 0b0011, 0b1001: 0b1010, 0b1010: 0b0110, 0b1011: 0b1100,
+    0b1100: 0b0101, 0b1101: 0b1001, 0b1110: 0b0000, 0b1111: 0b0111
+}
+
+# Define the permutation table
+PERMUTATION_TABLE = [1, 5, 2, 0, 3, 7, 4, 6]
+
+# Substitution function
+def s_box_substitute(nibble):
+    """Substitute a 4-bit nibble using the S-box."""
+    return S_BOX[nibble]
+
+# Permutation function
+def permute(bits):
+    """Permute the bits of an 8-bit block according to the permutation table."""
+    permuted_bits = 0
+    for i, bit_pos in enumerate(PERMUTATION_TABLE):
+        permuted_bits |= ((bits >> bit_pos) & 1) << i
+    return permuted_bits
+
+# Feistel function
+def feistel_function(right_half, key_half):
+    """Feistel function: XOR 4-bit right half with 4-bit key."""
+    return right_half ^ key_half
+
+# Encrypt a single block (8-bit) using S-box, permutation, and Feistel structure
+def encrypt_block(block, key):
+    """Encrypt a single 8-bit block using the S-box, permutation, and Feistel structure."""
+    left_half = (block >> 4) & 0xF  # Left 4 bits
+    right_half = block & 0xF        # Right 4 bits
+    key_left = (key >> 4) & 0xF     # Left 4 bits of key
+    key_right = key & 0xF           # Right 4 bits of key
+
+    # Feistel round
+    feistel_output = feistel_function(right_half, key_right)
+    new_left_half = left_half ^ feistel_output
+
+    # Substitute using S-box
+    new_left_half = s_box_substitute(new_left_half)
+    new_right_half = s_box_substitute(right_half)
+
+    # Combine and permute
+    combined_block = (new_left_half << 4) | new_right_half
+    permuted_block = permute(combined_block)
+
+    return permuted_block
+
+# 2. Mathematical Formulas
+# S-box, permutation, and Feistel functions are described in the explanation above.
+
+# 3. Design Complexity and Analysis
+
+# ECB Mode Encryption and Decryption
+def ecb_encrypt(plaintext_blocks, key):
+    """Encrypt a list of 8-bit plaintext blocks using ECB mode."""
+    ciphertext_blocks = []
+    for block in plaintext_blocks:
+        ciphertext_blocks.append(encrypt_block(block, key))
+    return ciphertext_blocks
+
+def ecb_decrypt(ciphertext_blocks, key):
+    """Decrypt a list of 8-bit ciphertext blocks using ECB mode."""
+    decrypted_blocks = []
+    for block in ciphertext_blocks:
+        decrypted_blocks.append(encrypt_block(block, key))  # Symmetric decryption
+    return decrypted_blocks
+
+# CBC Mode Encryption and Decryption
+def cbc_encrypt(plaintext_blocks, key, iv):
+    """Encrypt a list of 8-bit plaintext blocks using CBC mode with an IV."""
+    ciphertext_blocks = []
+    previous_block = iv
+    for block in plaintext_blocks:
+        block_to_encrypt = block ^ previous_block
+        ciphertext_block = encrypt_block(block_to_encrypt, key)
+        ciphertext_blocks.append(ciphertext_block)
+        previous_block = ciphertext_block
+    return ciphertext_blocks
+
+def cbc_decrypt(ciphertext_blocks, key, iv):
+    """Decrypt a list of 8-bit ciphertext blocks using CBC mode with an IV."""
+    decrypted_blocks = []
+    previous_block = iv
+    for block in ciphertext_blocks:
+        decrypted_block = encrypt_block(block, key)  # Symmetric decryption
+        decrypted_block ^= previous_block  # XOR with previous ciphertext (or IV for the first block)
+        decrypted_blocks.append(decrypted_block)
+        previous_block = block
+    return decrypted_blocks
+
+# Example usage for Part 4
+if __name__ == "__main__":
+    # Sample input (plaintext message)
+    plaintext = "HELLO"
+    key = 0b10100101  # Example 8-bit key
+    iv = 0b11111111   # Example initialization vector (IV)
+    
+    # Pad the plaintext to fit block size
+    padded_plaintext = pad_plaintext(plaintext, BLOCK_SIZE)
+    
+    # Convert the padded plaintext into 8-bit blocks
+    plaintext_blocks = text_to_blocks(padded_plaintext)
+    print(f"Plaintext Blocks (Padded): {[bin(b) for b in plaintext_blocks]}")
+    
+    # ECB Mode Encryption and Decryption
+    print("\nECB Mode:")
+    ciphertext_ecb = ecb_encrypt(plaintext_blocks, key)
+    print(f"ECB Ciphertext: {[bin(c) for c in ciphertext_ecb]}")
+    
+    decrypted_ecb = ecb_decrypt(ciphertext_ecb, key)
+    decrypted_text_ecb = blocks_to_text(decrypted_ecb).strip('\0')  # Remove padding
+    print(f"ECB Decrypted Text: {decrypted_text_ecb}")
+    
+    # CBC Mode Encryption and Decryption
+    print("\nCBC Mode:")
+    ciphertext_cbc = cbc_encrypt(plaintext_blocks, key, iv)
+    print(f"CBC Ciphertext: {[bin(c) for c in ciphertext_cbc]}")
+    
+    decrypted_cbc = cbc_decrypt(ciphertext_cbc, key, iv)
+    decrypted_text_cbc = blocks_to_text(decrypted_cbc).strip('\0')  # Remove padding
+    print(f"CBC Decrypted Text: {decrypted_text_cbc}")
+``
