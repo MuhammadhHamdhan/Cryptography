@@ -1,0 +1,77 @@
+# Part 1: Basic Block Cipher Implementation
+
+# 1. Define Block and Key Sizes
+BLOCK_SIZE = 8  # 8-bit block
+KEY_SIZE = 8    # 8-bit key
+
+# 2. Implement a Simple Substitution Box (S-box)
+# Define a 4x4 S-box for 4-bit input substitution
+S_BOX = {
+    0b0000: 0b1110, 0b0001: 0b0100, 0b0010: 0b1101, 0b0011: 0b0001,
+    0b0100: 0b0010, 0b0101: 0b1111, 0b0110: 0b1011, 0b0111: 0b1000,
+    0b1000: 0b0011, 0b1001: 0b1010, 0b1010: 0b0110, 0b1011: 0b1100,
+    0b1100: 0b0101, 0b1101: 0b1001, 0b1110: 0b0000, 0b1111: 0b0111
+}
+
+def s_box_substitute(nibble):
+    """Substitute a 4-bit nibble using the S-box."""
+    return S_BOX[nibble]
+
+# 3. Implement a Simplified Permutation
+# Define a permutation table that shuffles the bits of an 8-bit block
+PERMUTATION_TABLE = [1, 5, 2, 0, 3, 7, 4, 6]
+
+def permute(bits):
+    """Permute the bits of an 8-bit block according to the permutation table."""
+    permuted_bits = 0
+    for i, bit_pos in enumerate(PERMUTATION_TABLE):
+        permuted_bits |= ((bits >> bit_pos) & 1) << i
+    return permuted_bits
+
+# 4. Implement a Basic Feistel Function
+def feistel_function(right_half, key_half):
+    """Feistel function: XOR 4-bit right half with 4-bit key."""
+    return right_half ^ key_half
+
+# 5. Combine Components for Encryption (Single Round)
+def encrypt_block(block, key):
+    """Encrypt a single 8-bit block using the S-box, permutation, and Feistel structure."""
+    # Split the 8-bit block into two 4-bit halves
+    left_half = (block >> 4) & 0xF  # Left 4 bits
+    right_half = block & 0xF        # Right 4 bits
+    
+    # Split the 8-bit key into two 4-bit halves
+    key_left = (key >> 4) & 0xF     # Left 4 bits of key
+    key_right = key & 0xF           # Right 4 bits of key
+    
+    # Apply the Feistel function on the right half and XOR with the left half
+    feistel_output = feistel_function(right_half, key_right)
+    
+    # XOR the Feistel output with the left half
+    new_left_half = left_half ^ feistel_output
+    
+    # Substitute both halves using the S-box
+    new_left_half = s_box_substitute(new_left_half)
+    new_right_half = s_box_substitute(right_half)
+    
+    # Combine the two halves back into an 8-bit block
+    combined_block = (new_left_half << 4) | new_right_half
+    
+    # Permute the bits of the combined block
+    permuted_block = permute(combined_block)
+    
+    return permuted_block
+
+# Example usage for encryption
+if __name__ == "__main__":
+    # Example 8-bit block and 8-bit key
+    plaintext_block = 0b10101010  # Example plaintext
+    key = 0b10100101             # Example 8-bit key
+    
+    # Encrypt the block
+    encrypted_block = encrypt_block(plaintext_block, key)
+    
+    # Print the result
+    print(f"Plaintext:  {bin(plaintext_block)}")
+    print(f"Key:        {bin(key)}")
+    print(f"Ciphertext: {bin(encrypted_block)}")
